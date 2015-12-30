@@ -93,3 +93,11 @@ megatag::megatag() :
 {
 }
 
+
+
+time_t megatag::get_time()
+{
+	struct stat attrib;
+	stat(path, &attrib);
+	return attrib.st_mtime;
+}

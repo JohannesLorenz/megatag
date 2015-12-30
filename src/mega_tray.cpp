@@ -3,7 +3,7 @@
 #include <climits>
 #include <iostream>
 #include <libgen.h>
-#include <sys/stat.h>
+#include <QMessageBox>
 #include "mega_tray.h"
 
 //! this is used for Qt's timer
@@ -19,18 +19,35 @@ void mega_tray::setup_ui()
 //	tray_menu.addSeparator();
 //	tray_menu.addAction(&act_settings);
 //	tray_menu.addSeparator();
-	tray_menu.addAction(&act_quit);
-	setContextMenu(&tray_menu);
+	setContextMenu(&tag_menu);
 
 	main_layout.addWidget(&information);
 
 	tag_edit.setCompleter(&completer);
 	main_layout.addWidget(&tag_edit);
 
-	widget.setLayout(&main_layout);
-	widget_action.setDefaultWidget(&widget);
-	tag_menu.addAction(&widget_action);
-	tag_menu.addSeparator();
+	for(std::size_t i = 0; i < num_buttons; ++i) // TODO: enumerator?
+	for(std::size_t j = 0; j < 8; ++j)
+	{
+		QPushButton& btn = buttons[i][j];
+		btn.setFixedWidth(120);
+		QObject::connect(&btn, SIGNAL(released()), this, SLOT(submit_tag_by_button()));
+		grids[i].addWidget(&btn, j/4, j%4);
+	}
+
+	widgets[information_widget].setLayout(&main_layout);
+	widgets[suggested_widget].setLayout(grids);
+	widgets[recent_widget].setLayout(grids + 1);
+	widgets[popular_widget].setLayout(grids + 2);
+
+	for(std::size_t i = 0; i < num_widgets; ++i)
+	{
+		QWidgetAction* new_action = new QWidgetAction(&tag_menu);
+		new_action->setDefaultWidget(widgets + i);
+		tag_menu.addAction(new_action);
+		tag_menu.addSeparator();
+		widget_actions[i] = new_action;
+	}
 	tag_menu.addAction(&act_quit);
 	tag_menu.setWindowIcon(QIcon("../../icon.png"));
 
@@ -38,9 +55,10 @@ void mega_tray::setup_ui()
 		this, SLOT(triggerTray(QSystemTrayIcon::ActivationReason)));
 //	QObject::connect(&act_about, SIGNAL(triggered()), this, SLOT(showInfo()));
 	QObject::connect(&act_quit, SIGNAL(triggered()), this, SLOT(close_app()));
+
 	//	QObject::connect(&act_settings, SIGNAL(triggered()), this, SLOT(options()));
 	QObject::connect(&next_tag, SIGNAL(timeout()), this, SLOT(tag()));
-	QObject::connect(&tag_edit, SIGNAL(editingFinished()), this, SLOT(submitTag()));
+	QObject::connect(&tag_edit, SIGNAL(editingFinished()), this, SLOT(submit_tag_by_text_edit()));
 }
 
 QStringList mega_tray::get_word_list()
@@ -48,112 +66,143 @@ QStringList mega_tray::get_word_list()
 	QStringList _word_list;
 
 	const auto append_to_string_list =
-		[&](int, char **argv, char **) {
+		[&](char **argv) {
 			_word_list.append(argv[1]);
 			qDebug() << argv[1] << ", " << atoi(argv[0]);
 			id_of.emplace(argv[1],atoi(argv[0]));
 			qDebug() << argv[1] << ", " << atoi(argv[0]);
-			return true;
 		};
 
-	db.func("SELECT id,name FROM ids ORDER BY name;", append_to_string_list);
+	db.func0("SELECT id,name FROM ids ORDER BY name;", append_to_string_list);
 
 	return _word_list;
 }
 
-void mega_tray::submitTag()
+std::string mega_tray::get_current_tags()
 {
-	const QString new_text = tag_edit.text();
+	std::string tags;
+	db.func0("SELECT tags FROM files WHERE path='" + std::string(path) + "';",
+		[&](char **argv) { return tags = argv[0], true; });
+	return tags;
+}
+
+void mega_tray::inc_tag_itr(std::string::const_iterator &itr)
+{
+	for(; isdigit(*itr); ++itr) ;
+	for(; *itr == ' ' || *itr == ','; ++itr) ;
+}
+
+void mega_tray::submit_tag_by_text_edit()
+{
+	QString new_text = tag_edit.text();
 	if(new_text.length())
 	{
-		std::size_t tags_id;
-		const auto itr = id_of.find(new_text.toStdString());
-
-		if(itr == id_of.end())
+		bool error = false;
+		for(QChar c : new_text)
 		{
-			functor_print f;
-
-			db.exec("INSERT INTO ids (id, name) "
-				"VALUES (NULL, '" + new_text.toStdString() + "');", f);
-
-			// re-read the list (TODO? https://www.sqlite.org/autoinc.html)
-			word_list = get_word_list();
-
-			const auto get_new_id =
-				[&](int, char **argv, char **)
-				{
-					return tags_id = atoi(argv[0]), true;
-				};
-
-			db.func("SELECT id FROM ids WHERE name='" + new_text.toStdString() + "';",
-				get_new_id);
+			error = error || (!c.isLetterOrNumber() && c != '-' && c != '_' && c != ' ');
 		}
+
+		if(error)
+		 QMessageBox::information(nullptr, "Invalid input", "Only allowed: alpha-numerics, or one of \" -_\"");
 		else
 		{
-			tags_id = itr->second;
-		}
+			new_text.replace('-', ' ');
+			new_text.replace('_', ' ');
+			new_text = new_text.trimmed();
+			new_text.replace(' ', '-');
 
-		bool found = false; // TODO: genereal template class... argv[0]-find?
-		const auto find_file =
-			[&](int, char **argv, char **)
+			QChar recent = new_text[1];
+			QString new_text_2;
+			for(QChar& c : new_text)
 			{
-				found = found || (!strcmp(argv[0], path));
-				return true;
-			};
-		db.func("SELECT path FROM files ORDER BY path;", find_file);
-
-		if(found)
-		{
-			std::string tags;
-			const auto get_csv =
-				[&](int, char **argv, char **)
-				{
-					return tags = argv[0], true;
-				};
-
-			db.func("SELECT tags FROM files WHERE path='" + std::string(path) + "';",
-				get_csv);
-
-			std::string::iterator itr = tags.begin();
-			const auto inc_itr = [&]() {
-				for(; isdigit(*itr); ++itr) ;
-				for(; *itr == ' ' || *itr == ','; ++itr) ;
-			};
-
-			for(; itr != tags.end(); inc_itr())
-			{
-				qDebug() << &*itr << ", id" << tags_id;
-				if(itr == tags.end() || (std::size_t)atoi(&*itr) >= tags_id)
-				 break;
+				if(recent != c)
+				 new_text_2.append(recent = c);
 			}
 
-			if(itr == tags.end() || (std::size_t)atoi(&*itr) != tags_id)
-			{
-				tags.insert(std::distance(tags.begin(), itr), std::to_string(tags_id) + ", ");
-
-				db.exec("UPDATE files"
-					" SET tags='" + tags +
-					"' WHERE path='" + std::string(path) + "';");
-			}
+			submit_tag(new_text_2);
 		}
-		else
-		{
-			struct stat attrib;
-			stat(path, &attrib);
-			time_t the_time = attrib.st_mtime;
-
-			functor_print p;
-			const char* sep = "', '";
-			db.exec("INSERT INTO files (id, path, tags, last_changed, filetype, quality, md5sum) "
-				"VALUES (NULL, '" + std::string(path) + sep
-					+ std::to_string(tags_id) + ", " + sep
-					+ std::to_string(the_time) + sep
-					+ "TODO', '0', 'TODO');"
-					, p);
-		}
-
-		tag_edit.clear();
 	}
+}
+
+void mega_tray::submit_tag_by_button()
+{
+	QPushButton* button = dynamic_cast<QPushButton*>(sender());
+	const QString new_text = button->text();
+	if(new_text.length())
+	 submit_tag(new_text);
+}
+
+void mega_tray::submit_tag(const QString& new_text)
+{
+	int tags_id = -1;
+
+	const auto get_id = [&]()
+	{
+		db.func0("SELECT id FROM ids WHERE name = '" + new_text.toStdString() + "'",
+			[&](char **argv)
+			{
+				return tags_id = atoi(argv[0]), true;
+			});
+	};
+
+	get_id();
+	if(tags_id == -1)
+	{
+		db.exec("INSERT INTO ids (id, name, timestamp, used_count) "
+			"VALUES (NULL, '" + new_text.toStdString() + "', '"
+			+ std::to_string(get_time()) + "', '0');");
+
+		// re-read the list (TODO? https://www.sqlite.org/autoinc.html)
+		word_list = get_word_list();
+		get_id();
+	}
+	else
+	{
+		db.exec("UPDATE ids SET used_count = used_count + 1 WHERE id = '"
+			+ std::to_string(tags_id) + "';");
+		db.exec("UPDATE ids SET timestamp='" + std::to_string(get_time()) + "' WHERE id = '"
+			+ std::to_string(tags_id) + "';");
+	}
+
+	// TODO: genereal template class... argv[0]-find?
+	if(file_id == -1)
+	{
+	/*	std::string tags = get_current_tags();
+
+		std::string::const_iterator itr = tags.begin();
+		for(; itr != tags.end(); inc_tag_itr(itr))
+		{
+			qDebug() << &*itr << ", id" << tags_id;
+			if(itr == tags.end() || (std::size_t)atoi(&*itr) >= tags_id)
+			 break;
+		}
+
+		if(itr == tags.end() || (std::size_t)atoi(&*itr) != tags_id)
+		{
+			tags.insert(std::distance(tags.cbegin(), itr), std::to_string(tags_id) + ", ");
+
+			db.exec("UPDATE files"
+				" SET tags='" + tags +
+				"' WHERE path='" + std::string(path) + "';");
+		}*/
+
+		functor_print p;
+		const char* sep = "', '";
+		db.exec("INSERT INTO files (id, path, last_changed, filetype, quality, md5sum) "
+			"VALUES (NULL, '" + std::string(path) + sep
+				+ std::to_string(get_time()) + sep
+				+ "TODO', '0', 'TODO');"
+				, p);
+		get_file_id();
+	}
+
+	db.exec("INSERT OR IGNORE INTO tags (file_id, tag_id)"
+		 "VALUES( " + std::to_string(file_id) + ", " + std::to_string(tags_id) + ");");
+
+	tag_edit.clear();
+	on_update_keywords_for_file();
+
 }
 
 void mega_tray::tag()
@@ -175,17 +224,102 @@ void mega_tray::tag()
 
 		qDebug() << "playing: " << _basename;
 
-		information.setText("Select tags for " + QString(_basename));
+		on_update_keywords_for_file();
 
-		setContextMenu(&tag_menu);
-		contextMenu()->setWindowFlags(Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
+		tag_menu.setWindowFlags(Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
 		QPoint pos = geometry().bottomLeft();
 		qDebug() << "POS: " << pos;
 		contextMenu()->move(pos);
 		contextMenu()->show();
+		/*QPoint pos = geometry().bottomLeft();
+		tag_menu.popup(pos);
+		tag_menu.show();*/
 	} else {
 		qDebug() << "retrying...";
 	}
+}
+
+void mega_tray::update_information_string()
+{
+	std::string info_str = "Select tags for ";
+	info_str += _basename;
+
+	//std::string cur_tags = get_current_tags();
+
+	file_id = -1;
+	get_file_id();
+	qDebug() << "file id:" << file_id;
+
+	if(file_id != -1)
+	{
+		info_str += "<br/>Current tags:<b>";
+
+		db.func0("SELECT ids.name"
+			" FROM tags JOIN ids"
+				" ON tags.tag_id = ids.id"
+			" WHERE tags.file_id = " + std::to_string(file_id) +
+			" ORDER BY name;",
+			[&](char** arg) { (info_str += ' ') += arg[0]; } );
+
+		info_str += "</b>";
+	}
+
+	information.setText(QString::fromStdString(info_str));
+}
+
+void mega_tray::on_update_keywords_for_file()
+{
+	// word list is not necessarily updated
+	update_information_string();
+
+#define SELECT_UNUSED_ \
+		"SELECT ids.name,tags.tag_id" \
+		" FROM ids LEFT OUTER JOIN tags ON (tags.tag_id = ids.id)" \
+		" WHERE tags.tag_id is null OR tags.tag_id=''"
+
+	std::size_t next_button = 0;
+	db.func0(SELECT_UNUSED_
+		" ORDER BY ids.timestamp DESC"
+		" LIMIT 32;",
+		[&](char** arg){
+			if(next_button < 8)
+			buttons[recent_buttons][next_button++].setText(arg[0]); });
+	for(; next_button < 8; ++next_button)
+	 buttons[recent_buttons][next_button].setText("");
+
+	next_button=0;
+	db.func0(SELECT_UNUSED_
+		" ORDER BY ids.used_count DESC"
+		" LIMIT 32;",
+		[&](char** arg){
+			if(next_button < 8)
+			buttons[popular_buttons][next_button++].setText(arg[0]); });
+	for(; next_button < 8; ++next_button)
+	 buttons[popular_buttons][next_button].setText("");
+
+	next_button=0;
+	db.func0("SELECT ids.name,tags.tag_id"
+		" FROM ids"
+		" LEFT OUTER JOIN tags ON (tags.tag_id = ids.id) "
+		" JOIN keywords ON (ids.id = keywords.id) "
+		" WHERE tags.tag_id is null OR tags.tag_id=''"
+		// keyword is part of path:
+		" AND '" + std::string(path) + "' like ('%' || keywords.keyword || '%') "
+		" ORDER BY ids.name"
+		" LIMIT 32;",
+			[&](char** arg){
+			if(next_button < 8)
+			 buttons[suggested_buttons][next_button++].setText(arg[0]); }
+			);
+	for(; next_button < 8; ++next_button)
+	 buttons[suggested_buttons][next_button].setText("");
+#undef SELECT_UNUSED_
+}
+
+void mega_tray::get_file_id()
+{
+	db.func0("SELECT id FROM files WHERE path = '" + std::string(path) + "';",
+			[&](char** arg) { file_id = atoi(arg[0]); } );
 }
 
 void mega_tray::close_app()
@@ -214,10 +348,9 @@ void mega_tray::triggerTray(QSystemTrayIcon::ActivationReason reason)
 
 mega_tray::mega_tray() :
 	QSystemTrayIcon(QIcon("../../icon.png")),
-	act_quit("Quit", this),
-	widget_action(&tray_menu),
 	word_list(get_word_list()),
-	completer(word_list, &widget /* TODO: really widget? */)
+	completer(word_list, &widgets[information_widget] /* TODO: really widget? */),
+	act_quit("Quit", this)
 {
 	setup_ui();
 }

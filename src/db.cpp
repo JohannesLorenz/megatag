@@ -60,7 +60,6 @@ db_t::db_t(const char *filename)
 	const char* create_str = "CREATE TABLE files ("
 		"'id' INTEGER PRIMARY KEY, "
 		"'path' varchar(255),"
-		"'tags' varchar(255),"
 		"'last_changed' int,"
 		"'filetype' varchar(8),"
 		"'quality' smallint(6),"
@@ -69,14 +68,39 @@ db_t::db_t(const char *filename)
 
 	const char* create_str_ids = "CREATE TABLE ids ("
 		"'id' INTEGER PRIMARY KEY, "
-		"'name' varchar(127)"
+		"'name' varchar(127),"
+		"'timestamp' int,"
+		"'used_count' int"
 		");";
 
-	functor_print printer;
+	const char* create_tags = "CREATE TABLE tags ("
+		"'file_id' int,"
+		"'tag_id' smallint(16),"
+		// pairs of (file_id, tag_id) are unique
+		// same effect if both columns would make 1 prim krey
+		"UNIQUE(file_id, tag_id)"
+		");";
+
+	const char* create_keywords = "CREATE TABLE keywords ("
+		"'keyword' varchar(255),"
+		"'id' smallint(16)"
+	");";
+
+	const char* create_implicits = "CREATE TABLE implicits ("
+		"'src' smallint(16),"
+		"'dest' smallint(16)"
+	");";
+
 	if(!table_exists("files"))
-	 exec(create_str, printer);
+	 exec(create_str);
 	if(!table_exists("ids"))
-	 exec(create_str_ids, printer);
+	 exec(create_str_ids);
+	if(!table_exists("tags"))
+	 exec(create_tags);
+	if(!table_exists("keywords"))
+	 exec(create_keywords);
+	if(!table_exists("implicits"))
+	 exec(create_implicits);
 }
 
 db_t::~db_t()
