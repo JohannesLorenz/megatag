@@ -91,6 +91,57 @@ pid_t megatag::get_xprop_pid()
 	return 0;
 }
 
+bool megatag::is_reachable_from_current(std::size_t id)
+{
+	std::map<std::size_t, bool> cur_ids;
+	db.func0("SELECT tag_id from tags where file_id = '" +
+		std::to_string(file_id) + "';",
+		[&](char** arg){ cur_ids.emplace(atoi(arg[0]), true); });
+
+	for(const auto& src : cur_ids)
+	{
+		// TODO: term func by return value
+		if(src.second && (src.first != id))
+		{
+			if(tra_cl.has_edge(vertex_of[src.first], vertex_of[id]))
+			 return true;
+		}
+		/*graph.dfs(vertex_of[src.first], [&](vertex_t v) {
+			std::cout << "discover: " << v.tag_id << std::endl;
+			if(v.tag_id == id)
+			 is_reachable = true;
+			else {
+				auto itr = cur_ids.find(v.tag_id);
+				if(itr != cur_ids.end())
+				 itr->second = false;
+			}
+		});*/
+	}
+	return false;
+}
+
+std::set<std::size_t> megatag::are_reachable_from(std::size_t src)
+{
+	std::set<std::size_t> cur_ids, result;
+	db.func0("SELECT tag_id from tags where file_id = '" +
+		std::to_string(file_id) + "';",
+		[&](char** arg){ cur_ids.insert(atoi(arg[0])); });
+
+	std::cout << "start with: " << graph.get(vertex_of[src]).tag_id << std::endl;
+	/*graph.dfs(vertex_of[src], [&](vertex_t v) {
+		std::cout << "discover: " << v.tag_id << std::endl;
+		if(v.tag_id != src && cur_ids.find(v.tag_id) != cur_ids.end())
+		 result.insert(v.tag_id); });*/
+	for(std::set<std::size_t>::const_iterator itr = cur_ids.begin();
+		itr != cur_ids.end(); ++itr)
+	{
+		if(tra_cl.has_edge(vertex_of[src], vertex_of[*itr]))
+		 result.insert(*itr);
+	}
+
+	return result;
+}
+
 std::string megatag::get_megatag_dir()
 {
 	struct passwd *pw = getpwuid(getuid());
@@ -115,6 +166,19 @@ megatag::megatag() :
 	megatag_dir(get_megatag_dir()),
 	db((megatag_dir + "db").c_str())
 {
+	db.func0("SELECT id FROM ids",
+		[&](char** arg) {
+			int v_id = atoi(arg[0]);
+			vertex_of[v_id] = graph.add_vertex(v_id); } );
+
+	db.func0("SELECT src,dest FROM implicits",
+		[&](char** arg) { graph.add_edge(vertex_of[atoi(arg[0])],
+			vertex_of[atoi(arg[1])]); } );
+
+	graph.transitive_closure(tra_cl);
+
+	std::ofstream o("graph.dot");
+	o << tra_cl;
 }
 
 

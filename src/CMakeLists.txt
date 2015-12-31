@@ -14,6 +14,13 @@ QT4_WRAP_CPP(gui_headers_moc ${moc_headers})
 include(${QT_USE_FILE})
 add_definitions(${QT_DEFINITIONS})
 
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
+find_package(Boost 1.46.0
+	REQUIRED
+	COMPONENTS graph)
+
 add_executable(main-bin ${gui_sources} ${gui_headers_moc} ${other_headers})
 target_link_libraries(main-bin sqlite3 ${QT_LIBRARIES})
 

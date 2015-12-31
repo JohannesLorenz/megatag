@@ -150,42 +150,88 @@ void mega_tray::submit_tag(const QString& new_text)
 			});
 	};
 
-	get_id();
-	if(tags_id == -1)
+	if(is_reachable_from_current(tags_id))
 	{
-		db.exec("INSERT INTO ids (id, name, timestamp, used_count) "
-			"VALUES (NULL, '" + new_text.toStdString() + "', '"
-			+ std::to_string(get_time()) + "', '0');");
-
-		// re-read the list
-		word_list = get_word_list();
-		get_id();
+		QMessageBox::information(nullptr, "Tag not added", "This tag is already implicated by other tags, not adding it");
+		qDebug() << "...";
 	}
 	else
 	{
-		db.exec("UPDATE ids SET used_count = used_count + 1 WHERE id = '"
-			+ std::to_string(tags_id) + "';");
-		db.exec("UPDATE ids SET timestamp='" + std::to_string(get_time()) + "' WHERE id = '"
-			+ std::to_string(tags_id) + "';");
+		bool already_tagged = false, reachable = false;
+		get_id();
+		if(tags_id == -1)
+		{
+			db.exec("INSERT INTO ids (id, name, timestamp, used_count) "
+				"VALUES (NULL, '" + new_text.toStdString() + "', '"
+				+ std::to_string(get_time()) + "', '1');");
+
+			// re-read the list
+			word_list = get_word_list();
+			get_id();
+			// can not be already tagged since id was new
+		}
+		else
+		{
+			already_tagged = db.contains("SELECT * FROM tags WHERE file_id='" + std::to_string(file_id) +
+				"' AND tag_id='" + std::to_string(tags_id) + "';");
+			qDebug() << "already tagged?" << already_tagged;
+			if(!already_tagged)
+			{
+				if(is_reachable_from_current(tags_id))
+				 reachable = true;
+
+				if(!reachable)
+				{
+					db.exec("UPDATE ids SET used_count = used_count + 1 WHERE id = '"
+						+ std::to_string(tags_id) + "';");
+					db.exec("UPDATE ids SET timestamp='" + std::to_string(get_time()) + "' WHERE id = '"
+						+ std::to_string(tags_id) + "';");
+				}
+			}
+		}
+
+		if(!already_tagged && !reachable)
+		{
+			// FEATURE: genereal template class... argv[0]-find?
+			if(file_id == -1)
+			{
+				const char* sep = "', '";
+				db.exec("INSERT INTO files (id, path, last_changed, filetype, quality, md5sum) "
+					"VALUES (NULL, '" + std::string(path) + sep
+						+ std::to_string(get_time()) + sep
+						+ "TODO', '0', 'TODO');");
+				get_file_id();
+			}
+
+			db.exec("INSERT INTO tags (file_id, tag_id) "
+				 "VALUES(" + std::to_string(file_id) + ", " + std::to_string(tags_id) + ");");
+
+			std::set<std::size_t> s = are_reachable_from(tags_id);
+			for(const std::size_t implicated : s)
+			{
+				// TODO: erase? (ERASE OR IGNORE?)
+				db.exec("DELETE FROM tags WHERE file_id='" + std::to_string(file_id)
+					+ "' AND tag_id = '" + std::to_string(implicated) + "';");
+			}
+
+/*			db.func0("SELECT tags.tag_id"
+				" FROM tags"
+				" WHERE tags.file_id = '" + std::to_string(file_id) + "';",
+				[&](char** arg) {
+					std::set<std::size_t> s = are_reachable_from(atoi(arg[0]));
+					for(const std::size_t implicated : s)
+					{
+						// TODO: erase? (ERASE OR IGNORE?)
+						db.exec("DELETE FROM tags WHERE file_id='" + std::to_string(file_id)
+							+ "' AND tag_id = '" + std::to_string(implicated) + "';");
+					}
+				} );*/
+
+			on_update_keywords_for_file();
+		}
+
+		tag_edit.clear();
 	}
-
-	// FEATURE: genereal template class... argv[0]-find?
-	if(file_id == -1)
-	{
-		const char* sep = "', '";
-		db.exec("INSERT INTO files (id, path, last_changed, filetype, quality, md5sum) "
-			"VALUES (NULL, '" + std::string(path) + sep
-				+ std::to_string(get_time()) + sep
-				+ "TODO', '0', 'TODO');");
-		get_file_id();
-	}
-
-	db.exec("INSERT OR IGNORE INTO tags (file_id, tag_id)"
-		 "VALUES( " + std::to_string(file_id) + ", " + std::to_string(tags_id) + ");");
-
-	tag_edit.clear();
-	on_update_keywords_for_file();
-
 }
 
 void mega_tray::tag()
@@ -253,7 +299,7 @@ void mega_tray::on_update_keywords_for_file()
 	update_information_string();
 
 #define SELECT_UNUSED_ \
-		"SELECT ids.name,tags.tag_id" \
+		"SELECT ids.name,ids.id,tags.tag_id" \
 		" FROM ids LEFT OUTER JOIN tags ON (tags.tag_id = ids.id)" \
 		" WHERE tags.tag_id is null OR tags.tag_id=''"
 
@@ -262,7 +308,7 @@ void mega_tray::on_update_keywords_for_file()
 		" ORDER BY ids.timestamp DESC"
 		" LIMIT 32;",
 		[&](char** arg){
-			if(next_button < 8)
+			if(next_button < 8 && !is_reachable_from_current(arg[1]))
 			buttons[recent_buttons][next_button++].setText(arg[0]); });
 	for(; next_button < 8; ++next_button)
 	 buttons[recent_buttons][next_button].setText("");
@@ -272,13 +318,13 @@ void mega_tray::on_update_keywords_for_file()
 		" ORDER BY ids.used_count DESC"
 		" LIMIT 32;",
 		[&](char** arg){
-			if(next_button < 8)
+			if(next_button < 8 && !is_reachable_from_current(arg[1]))
 			buttons[popular_buttons][next_button++].setText(arg[0]); });
 	for(; next_button < 8; ++next_button)
 	 buttons[popular_buttons][next_button].setText("");
 
 	next_button=0;
-	db.func0("SELECT ids.name,tags.tag_id"
+	db.func0("SELECT ids.name,ids.id,tags.tag_id"
 		" FROM ids"
 		" LEFT OUTER JOIN tags ON (tags.tag_id = ids.id) "
 		" JOIN keywords ON (ids.id = keywords.id) "
@@ -288,7 +334,7 @@ void mega_tray::on_update_keywords_for_file()
 		" ORDER BY ids.name"
 		" LIMIT 32;",
 			[&](char** arg){
-			if(next_button < 8)
+			if(next_button < 8 && !is_reachable_from_current(arg[1]))
 			 buttons[suggested_buttons][next_button++].setText(arg[0]); }
 			);
 	for(; next_button < 8; ++next_button)

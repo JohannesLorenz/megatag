@@ -23,29 +23,52 @@
 #include <map>
 #include <string>
 #include "db.h"
+#include "graph.h"
 
 void get_input(const char* shell_command, pid_t* _childs_pid = nullptr);
 
 //! class to hold "global" variables, gui-independent
 class megatag
 {
+	struct edge_t {
+		std::string label() const { return ""; }
+	};
+	struct vertex_t {
+		std::size_t tag_id;
+		vertex_t() = default;
+		vertex_t(int t) : tag_id(t) {}
+		std::string label() const { return std::to_string(tag_id); }
+	};
+
+	using graph_t = graph_base_t<vertex_t, edge_t>;
+
 	static std::string get_megatag_dir();
+	std::map<std::size_t, graph_t::vertex_t> vertex_of;
 
 protected:
 	const std::string megatag_dir;
 	db_t db;
-	std::map<std::string, std::size_t> id_of;
+	std::map<std::string, std::size_t> id_of; // TODO: bimap?
 
 	char path[PATH_MAX];
 	const char* _basename;
-	int file_id; //!< id in 'file' database
+	int file_id; //!< id in 'file' table
 
 	time_t get_time();
 	void get_file_id();
+	pid_t get_xprop_pid();
 
+	graph_t graph; // TODO: private?
+	graph_t tra_cl; // TODO: private?
+
+	bool is_reachable_from_current(std::size_t id);
+	bool is_reachable_from_current(const char* id) {
+		return is_reachable_from_current(atoi(id));
+	}
+
+	std::set<std::size_t> are_reachable_from(std::size_t src);
 public:
 	megatag();
-	pid_t get_xprop_pid();
 };
 
 #endif // MEGATAG_H

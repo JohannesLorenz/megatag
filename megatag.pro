@@ -16,7 +16,8 @@ SOURCES += src/main.cpp \
 HEADERS += \
 	src/db.h \
     src/mega_tray.h \
-    src/megatag.h
+    src/megatag.h \
+    src/graph.h
 
 OTHER_FILES += src/CMakeLists.txt
 
