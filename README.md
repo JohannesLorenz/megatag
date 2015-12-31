@@ -11,7 +11,7 @@ Welcome! Thank you for considering the README file.
 
 # 1 What is megatag?
 It is a simple tool for tagging files; especially media files that currently run in
-a media player.q
+a media player.
 
 In the future, you will be able to ...
 

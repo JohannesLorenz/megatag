@@ -1,3 +1,22 @@
+/*************************************************************************/
+/* megatag - A simple library to tag files graphically                   */
+/* Copyright (C) 2015                                                    */
+/* Johannes Lorenz (jlsf2013 @ sourceforge)                              */
+/*                                                                       */
+/* This program is free software; you can redistribute it and/or modify  */
+/* it under the terms of the GNU General Public License as published by  */
+/* the Free Software Foundation; either version 3 of the License, or (at */
+/* your option) any later version.                                       */
+/* This program is distributed in the hope that it will be useful, but   */
+/* WITHOUT ANY WARRANTY; without even the implied warranty of            */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU      */
+/* General Public License for more details.                              */
+/*                                                                       */
+/* You should have received a copy of the GNU General Public License     */
+/* along with this program; if not, write to the Free Software           */
+/* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110, USA  */
+/*************************************************************************/
+
 #include <QApplication>
 #include <QDebug>
 #include <climits>
@@ -55,8 +74,7 @@ void mega_tray::setup_ui()
 		this, SLOT(triggerTray(QSystemTrayIcon::ActivationReason)));
 //	QObject::connect(&act_about, SIGNAL(triggered()), this, SLOT(showInfo()));
 	QObject::connect(&act_quit, SIGNAL(triggered()), this, SLOT(close_app()));
-
-	//	QObject::connect(&act_settings, SIGNAL(triggered()), this, SLOT(options()));
+//	QObject::connect(&act_settings, SIGNAL(triggered()), this, SLOT(options()));
 	QObject::connect(&next_tag, SIGNAL(timeout()), this, SLOT(tag()));
 	QObject::connect(&tag_edit, SIGNAL(editingFinished()), this, SLOT(submit_tag_by_text_edit()));
 }
@@ -76,20 +94,6 @@ QStringList mega_tray::get_word_list()
 	db.func0("SELECT id,name FROM ids ORDER BY name;", append_to_string_list);
 
 	return _word_list;
-}
-
-std::string mega_tray::get_current_tags()
-{
-	std::string tags;
-	db.func0("SELECT tags FROM files WHERE path='" + std::string(path) + "';",
-		[&](char **argv) { return tags = argv[0], true; });
-	return tags;
-}
-
-void mega_tray::inc_tag_itr(std::string::const_iterator &itr)
-{
-	for(; isdigit(*itr); ++itr) ;
-	for(; *itr == ' ' || *itr == ','; ++itr) ;
 }
 
 void mega_tray::submit_tag_by_text_edit()
@@ -153,7 +157,7 @@ void mega_tray::submit_tag(const QString& new_text)
 			"VALUES (NULL, '" + new_text.toStdString() + "', '"
 			+ std::to_string(get_time()) + "', '0');");
 
-		// re-read the list (TODO? https://www.sqlite.org/autoinc.html)
+		// re-read the list
 		word_list = get_word_list();
 		get_id();
 	}
@@ -165,35 +169,14 @@ void mega_tray::submit_tag(const QString& new_text)
 			+ std::to_string(tags_id) + "';");
 	}
 
-	// TODO: genereal template class... argv[0]-find?
+	// FEATURE: genereal template class... argv[0]-find?
 	if(file_id == -1)
 	{
-	/*	std::string tags = get_current_tags();
-
-		std::string::const_iterator itr = tags.begin();
-		for(; itr != tags.end(); inc_tag_itr(itr))
-		{
-			qDebug() << &*itr << ", id" << tags_id;
-			if(itr == tags.end() || (std::size_t)atoi(&*itr) >= tags_id)
-			 break;
-		}
-
-		if(itr == tags.end() || (std::size_t)atoi(&*itr) != tags_id)
-		{
-			tags.insert(std::distance(tags.cbegin(), itr), std::to_string(tags_id) + ", ");
-
-			db.exec("UPDATE files"
-				" SET tags='" + tags +
-				"' WHERE path='" + std::string(path) + "';");
-		}*/
-
-		functor_print p;
 		const char* sep = "', '";
 		db.exec("INSERT INTO files (id, path, last_changed, filetype, quality, md5sum) "
 			"VALUES (NULL, '" + std::string(path) + sep
 				+ std::to_string(get_time()) + sep
-				+ "TODO', '0', 'TODO');"
-				, p);
+				+ "TODO', '0', 'TODO');");
 		get_file_id();
 	}
 
@@ -215,7 +198,6 @@ void mega_tray::tag()
 
 		get_input(("readlink /proc/" + std::to_string(pid) +
 			"/fd/* | grep -v '\\(/dev/\\|pipe:\\|socket:\\)'").c_str());
-		//get_input("readlink /proc/$(pidof mplayer)/fd/* | grep -v '\\(/dev/\\|pipe:\\|socket:\\)'");
 		std::cin >> path;
 		_basename = basename(path);
 		if(!_basename)
@@ -243,8 +225,6 @@ void mega_tray::update_information_string()
 {
 	std::string info_str = "Select tags for ";
 	info_str += _basename;
-
-	//std::string cur_tags = get_current_tags();
 
 	file_id = -1;
 	get_file_id();
@@ -314,12 +294,6 @@ void mega_tray::on_update_keywords_for_file()
 	for(; next_button < 8; ++next_button)
 	 buttons[suggested_buttons][next_button].setText("");
 #undef SELECT_UNUSED_
-}
-
-void mega_tray::get_file_id()
-{
-	db.func0("SELECT id FROM files WHERE path = '" + std::string(path) + "';",
-			[&](char** arg) { file_id = atoi(arg[0]); } );
 }
 
 void mega_tray::close_app()
