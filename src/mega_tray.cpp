@@ -1,6 +1,6 @@
 /*************************************************************************/
 /* megatag - A simple library to tag files graphically                   */
-/* Copyright (C) 2015                                                    */
+/* Copyright (C) 2015-2016                                               */
 /* Johannes Lorenz (jlsf2013 @ sourceforge)                              */
 /*                                                                       */
 /* This program is free software; you can redistribute it and/or modify  */
@@ -141,15 +141,6 @@ void mega_tray::submit_tag(const QString& new_text)
 {
 	int tags_id = -1;
 
-	const auto get_id = [&]()
-	{
-		db.func0("SELECT id FROM ids WHERE name = '" + new_text.toStdString() + "'",
-			[&](char **argv)
-			{
-				return tags_id = atoi(argv[0]), true;
-			});
-	};
-
 	if(is_reachable_from_current(tags_id))
 	{
 		QMessageBox::information(nullptr, "Tag not added", "This tag is already implicated by other tags, not adding it");
@@ -158,16 +149,16 @@ void mega_tray::submit_tag(const QString& new_text)
 	else
 	{
 		bool already_tagged = false, reachable = false;
-		get_id();
+		tags_id = get_tag_id(new_text.toStdString());
 		if(tags_id == -1)
 		{
 			db.exec("INSERT INTO ids (id, name, timestamp, used_count) "
 				"VALUES (NULL, '" + new_text.toStdString() + "', '"
-				+ std::to_string(get_time()) + "', '1');");
+				+ std::to_string(get_ftime()) + "', '1');");
 
 			// re-read the list
 			word_list = get_word_list();
-			get_id();
+			tags_id = get_tag_id(new_text.toStdString());
 			// can not be already tagged since id was new
 		}
 		else
@@ -184,7 +175,7 @@ void mega_tray::submit_tag(const QString& new_text)
 				{
 					db.exec("UPDATE ids SET used_count = used_count + 1 WHERE id = '"
 						+ std::to_string(tags_id) + "';");
-					db.exec("UPDATE ids SET timestamp='" + std::to_string(get_time()) + "' WHERE id = '"
+					db.exec("UPDATE ids SET timestamp='" + std::to_string(get_ftime()) + "' WHERE id = '"
 						+ std::to_string(tags_id) + "';");
 				}
 			}
@@ -198,7 +189,7 @@ void mega_tray::submit_tag(const QString& new_text)
 				const char* sep = "', '";
 				db.exec("INSERT INTO files (id, path, last_changed, filetype, quality, md5sum) "
 					"VALUES (NULL, '" + std::string(path) + sep
-						+ std::to_string(get_time()) + sep
+						+ std::to_string(get_ftime()) + sep
 						+ "TODO', '0', 'TODO');");
 				get_file_id();
 			}
@@ -213,19 +204,6 @@ void mega_tray::submit_tag(const QString& new_text)
 				db.exec("DELETE FROM tags WHERE file_id='" + std::to_string(file_id)
 					+ "' AND tag_id = '" + std::to_string(implicated) + "';");
 			}
-
-/*			db.func0("SELECT tags.tag_id"
-				" FROM tags"
-				" WHERE tags.file_id = '" + std::to_string(file_id) + "';",
-				[&](char** arg) {
-					std::set<std::size_t> s = are_reachable_from(atoi(arg[0]));
-					for(const std::size_t implicated : s)
-					{
-						// TODO: erase? (ERASE OR IGNORE?)
-						db.exec("DELETE FROM tags WHERE file_id='" + std::to_string(file_id)
-							+ "' AND tag_id = '" + std::to_string(implicated) + "';");
-					}
-				} );*/
 
 			on_update_keywords_for_file();
 		}

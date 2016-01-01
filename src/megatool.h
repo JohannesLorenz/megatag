@@ -17,62 +17,19 @@
 /* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110, USA  */
 /*************************************************************************/
 
-#ifndef MEGATAG_H
-#define MEGATAG_H
+#ifndef MEGATOOL_H
+#define MEGATOOL_H
 
-#include <map>
-#include <string>
-#include "db.h"
-#include "graph.h"
+#include "megatag.h"
 
-void get_input(const char* shell_command, pid_t* _childs_pid = nullptr);
-
-//! class to hold "global" variables, gui-independent
-class megatag
+class megatool : public megatag
 {
-	struct edge_t {
-		std::string label() const { return ""; }
-	};
-	struct vertex_t {
-		std::size_t tag_id;
-		vertex_t() = default;
-		vertex_t(int t) : tag_id(t) {}
-		std::string label() const { return std::to_string(tag_id); }
-	};
-
-	using graph_t = graph_base_t<vertex_t, edge_t>;
-
-	static std::string get_megatag_dir();
-	std::map<std::size_t, graph_t::vertex_t> vertex_of;
-
-protected:
-	const std::string megatag_dir;
-	db_t db;
-	std::map<std::string, std::size_t> id_of; // TODO: bimap?
-
-	char path[PATH_MAX];
-	const char* _basename;
-	int file_id; //!< id in 'file' table
-
-	time_t get_ftime();
-	void get_file_id();
-	static pid_t get_xprop_pid();
-
-	graph_t graph; // TODO: private?
-	graph_t tra_cl; // TODO: private?
-
-	bool is_reachable_from_current(std::size_t id);
-	bool is_reachable_from_current(const char* id) {
-		return is_reachable_from_current(atoi(id));
-	}
-
-	int get_tag_id(const std::string& id_name);
-
-	static bool is_valid_keyword(const char* keyword);
-
-	std::set<std::size_t> are_reachable_from(std::size_t src);
+	std::string get_known_tag_id(const char* id_name);
 public:
-	megatag();
+	megatool();
+	void add_keyword(const char* keyword, const char* tag);
+	void add_impl(const char* src_tag, const char* dest_tag);
+	void query(std::string sql_expr);
 };
 
-#endif // MEGATAG_H
+#endif // MEGATOOL_H

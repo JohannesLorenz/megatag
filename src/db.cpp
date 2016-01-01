@@ -1,6 +1,6 @@
 /*************************************************************************/
 /* megatag - A simple library to tag files graphically                   */
-/* Copyright (C) 2015                                                    */
+/* Copyright (C) 2015-2016                                               */
 /* Johannes Lorenz (jlsf2013 @ sourceforge)                              */
 /*                                                                       */
 /* This program is free software; you can redistribute it and/or modify  */
@@ -101,13 +101,15 @@ db_t::db_t(const char *filename)
 		");";
 
 	const char* create_keywords = "CREATE TABLE keywords ("
-		"'keyword' varchar(255),"
-		"'id' smallint(16)"
+		"'keyword' varchar(255), "
+		"'id' smallint(16), "
+		"UNIQUE(keyword, id)"
 	");";
 
 	const char* create_implicits = "CREATE TABLE implicits ("
-		"'src' smallint(16),"
-		"'dest' smallint(16)"
+		"'src' smallint(16), "
+		"'dest' smallint(16), "
+		"UNIQUE(src, dest)"
 	");";
 
 	if(!table_exists("files"))

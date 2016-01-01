@@ -1,0 +1,61 @@
+function _select
+{
+	sqlite3 ~/.config/megatag/db "SELECT $1" | tr '\n' ' '
+}
+
+_megatool()
+{
+	local cur
+	COMPREPLY=()
+	cur="${COMP_WORDS[COMP_CWORD]}"
+
+	local params=
+
+# 1st: --help, any tag, any defined or undefined keyword
+# 2nd until arrow:
+#	keywords only: keyword or ->
+#	tags only: tag, => <= <-
+# after arrow -> => <= : tags
+# after arrow <-: keywords
+
+	if [ "$COMP_CWORD" = 1 ]; then
+		params="--help $(_select "name from ids")"
+	else
+		local arrow=
+		for i in ${COMP_WORDS[@]}
+		do
+			if [ "$i" == "'=>'" ] || [ "$i" == "'<='" ] \
+				|| [ "$i" == "'->'" ] || [ "$i" == "'<-'" ]; then
+				arrow="$i"
+			fi
+		done
+
+		# FEATURE: disallow tag twice
+
+		if [ -n "$arrow" ]; then
+			if [ "$arrow" == "'<-'" ]; then
+				# no arrow allowed
+				# keywords allowed, but we can't predict
+				# except for one case
+				params=${COMP_WORDS[1]}
+			else
+				# no arrow allowed
+				# tags allowed (even cycles)
+				params="$(_select "name from ids")"
+			fi
+		else
+			if [ "$(_select "* from ids where name='${COMP_WORDS[1]}'")" ]; then
+				params="'=>' '<=' '<-' $(_select "name from ids")"
+			else # probably newly defined keywords, we don't know
+				params="'->'"
+			fi
+		fi
+	fi
+
+	COMPREPLY=( $(compgen -W "${params}" -- ${cur}) )
+
+	return 0
+}
+complete -F _megatool megatool
+
+

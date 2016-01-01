@@ -1,6 +1,6 @@
 /*************************************************************************/
 /* megatag - A simple library to tag files graphically                   */
-/* Copyright (C) 2015                                                    */
+/* Copyright (C) 2015-2016                                               */
 /* Johannes Lorenz (jlsf2013 @ sourceforge)                              */
 /*                                                                       */
 /* This program is free software; you can redistribute it and/or modify  */
@@ -106,18 +106,25 @@ bool megatag::is_reachable_from_current(std::size_t id)
 			if(tra_cl.has_edge(vertex_of[src.first], vertex_of[id]))
 			 return true;
 		}
-		/*graph.dfs(vertex_of[src.first], [&](vertex_t v) {
-			std::cout << "discover: " << v.tag_id << std::endl;
-			if(v.tag_id == id)
-			 is_reachable = true;
-			else {
-				auto itr = cur_ids.find(v.tag_id);
-				if(itr != cur_ids.end())
-				 itr->second = false;
-			}
-		});*/
 	}
 	return false;
+}
+
+int megatag::get_tag_id(const std::string& id_name)
+{
+	int tags_id = -1;
+	db.func0("SELECT id FROM ids WHERE name = '" + id_name + "'",
+		[&](char **argv)
+		{
+			return tags_id = atoi(argv[0]), true;
+		});
+	return tags_id;
+}
+
+bool megatag::is_valid_keyword(const char *keyword)
+{
+	while(isalpha(*keyword)) ++keyword;
+	return !*keyword;
 }
 
 std::set<std::size_t> megatag::are_reachable_from(std::size_t src)
@@ -127,11 +134,6 @@ std::set<std::size_t> megatag::are_reachable_from(std::size_t src)
 		std::to_string(file_id) + "';",
 		[&](char** arg){ cur_ids.insert(atoi(arg[0])); });
 
-	std::cout << "start with: " << graph.get(vertex_of[src]).tag_id << std::endl;
-	/*graph.dfs(vertex_of[src], [&](vertex_t v) {
-		std::cout << "discover: " << v.tag_id << std::endl;
-		if(v.tag_id != src && cur_ids.find(v.tag_id) != cur_ids.end())
-		 result.insert(v.tag_id); });*/
 	for(std::set<std::size_t>::const_iterator itr = cur_ids.begin();
 		itr != cur_ids.end(); ++itr)
 	{
@@ -183,7 +185,7 @@ megatag::megatag() :
 
 
 
-time_t megatag::get_time()
+time_t megatag::get_ftime()
 {
 	struct stat attrib;
 	stat(path, &attrib);

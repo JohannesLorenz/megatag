@@ -1,6 +1,6 @@
 /*************************************************************************/
 /* megatag - A simple library to tag files graphically                   */
-/* Copyright (C) 2015                                                    */
+/* Copyright (C) 2015-2016                                               */
 /* Johannes Lorenz (jlsf2013 @ sourceforge)                              */
 /*                                                                       */
 /* This program is free software; you can redistribute it and/or modify  */
@@ -277,69 +277,6 @@ public:
 	edge& get(const edge_t& e) { return graph[e]; }
 	const vertex& get(const vertex_t& v) const { return graph[v]; }
 	const edge& get(const edge_t& e) const { return graph[e]; }
-
-private:
-	template<class Functor1>
-	class dfs_struct_simplify : public boost::default_dfs_visitor
-	{
-		const Functor1& discover_v;
-		public:
-		int _term = 2;
-		bool term() { return !_term; };
-		dfs_struct_simplify(const Functor1& discover_v) :
-		discover_v(discover_v)
-		{}
-		template<class V, class G>
-		inline void discover_vertex(V v, const G& ) const {
-			if(_term > 0) discover_v(v); }
-			template<class V, class G>
-		inline void start_vertex(V , const G& ) {
-			std::cout << "reducing term to " << _term - 1 << std::endl;
-			--_term; }
-	};
-public:
-	template<class VisFunctor>
-	void dfs(const vertex_t& from, const VisFunctor& vis_functor) const
-	{
-		using color_map_t = std::map<vertex_t, boost::default_color_type>;
-		color_map_t color_map;
-
-		for(auto& pr : color_map)
-		 pr.second = boost::white_color;
-
-		boost::associative_property_map<color_map_t> pm_color(color_map);
-
-		// returns true if shall terminate
-		dfs_struct_simplify<VisFunctor> dfs_vis(vis_functor);
-		//auto term_func = [&](const vertex_t&, const graph_t&) { return dfs_vis.term(); };
-
-		boost::depth_first_search(graph, boost::visitor(dfs_vis).root_vertex(from));
-	}
-
-	template<class Container>
-	void copy_vertex_list(graph_t& res, Container verts) const
-	{
-		const graph_t& gp = graph; // TODO
-
-		std::map<vertex_t, vertex_t> new_id_of;
-		for(const vertex_t& u : verts)
-		{// TODO: store new id
-			const vertex_t n = new_id_of[u] = boost::add_vertex(res);
-			res[n] = gp[u];
-		}
-
-		auto es = boost::edges(gp);
-		for(auto itr = es.first; itr != es.second; ++itr)
-		{
-			const vertex_t src = boost::source(*itr, gp), tar = boost::target(*itr, gp);
-			const auto new_src = new_id_of.find(src), new_tar = new_id_of.find(tar);
-			if(new_src != new_id_of.end() && new_tar != new_id_of.end())
-			{
-				const auto tmp = boost::add_edge(new_id_of[src], new_id_of[tar], res);
-				res[tmp.first] = gp[*itr];
-			}
-		}
-	}
 
 	void transitive_closure(graph_base_t& res)
 	{

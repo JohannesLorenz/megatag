@@ -11,13 +11,19 @@ INCLUDEPATH += .
 SOURCES += src/main.cpp \
 	src/db.cpp \
     src/mega_tray.cpp \
-    src/megatag.cpp
+    src/megatag.cpp \
+    src/megatool.cpp \
+    src/megatool_main.cpp
 
 HEADERS += \
 	src/db.h \
     src/mega_tray.h \
     src/megatag.h \
-    src/graph.h
+    src/graph.h \
+    src/megatool.h
 
 OTHER_FILES += src/CMakeLists.txt
+
+DISTFILES += \
+    bash_completion
 

@@ -17,66 +17,45 @@
 /* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110, USA  */
 /*************************************************************************/
 
-#include <QApplication>
-#include <QSystemTrayIcon>
+#include "megatool.h"
 
-#include <cstdlib>
-#include <iostream>
-
-#include "mega_tray.h"
-
-class MyApplication : public QApplication
+std::string megatool::get_known_tag_id(const char *id_name)
 {
-	using QApplication::QApplication;
-	bool notify(QObject *receiver_, QEvent *event_)
-	{
-		try
-		{
-			return QApplication::notify(receiver_, event_);
-		} catch(std::exception const& e) {
-			std::cerr << e.what() << std::endl;
-			return EXIT_FAILURE;
-		} catch(...) {
-			std::cerr << "caught unknown exception!" << std::endl;
-			return EXIT_FAILURE;
-		}
-		return false;
-	}
-
-};
-
-int run(MyApplication& app, int , char**)
-{
-	// TODO: move to ctor?
-	MyApplication::setQuitOnLastWindowClosed(false);
-
-	/*QSystemTrayIcon icon(QIcon("../../icon.png"));
-	icon.setToolTip("MegaTag - click to tag a file");
-	icon.showMessage("Test", "Message", QSystemTrayIcon::Information, 10000);
-	icon.show();*/
-	mega_tray icon;
-	icon.show();
-
-	return app.exec();
+	int tag_id = get_tag_id(id_name);
+	if(tag_id == -1)
+	 throw std::runtime_error("Unknwon tag specified");
+	return std::to_string(tag_id);
 }
 
-int main(int argc, char** argv)
+megatool::megatool()
 {
-	MyApplication app(argc, argv);
-	/*app.setOrganizationName("megatag");
-	app.setOrganizationDomain("github.com/JohannesLorenz/megatag");
-	app.setApplicationName("megatag");*/
 
-	try
-	{
-		run(app, argc, argv);
-	} catch(std::exception const& e) {
-		std::cerr << e.what() << std::endl;
-		return EXIT_FAILURE;
-	} catch(...) {
-		std::cerr << "caught unknown exception!" << std::endl;
-		return EXIT_FAILURE;
-	}
-	std::cerr << "Success!" << std::endl;
-	return EXIT_SUCCESS;
 }
+
+void megatool::add_keyword(const char *keyword, const char *tag)
+{
+	if(!is_valid_keyword(keyword))
+	 throw std::runtime_error("Keywords must currently be in '[A-Za-z]*'.");
+	db.exec("INSERT OR IGNORE into keywords (keyword, id) VALUES('"
+		+ std::string(keyword) + "', '"
+		+ get_known_tag_id(tag) + "');");
+}
+
+void megatool::add_impl(const char *src_tag, const char *dest_tag)
+{
+	db.exec("INSERT OR IGNORE into implicits (src, dest) VALUES('"
+		+ get_known_tag_id(src_tag) + "', '"
+		+ get_known_tag_id(dest_tag) + "');");
+}
+
+void megatool::query(std::string sql_expr)
+{
+	db.func0("SELECT DISTINCT files.path from"
+		" files"
+		" JOIN tags ON files.id = tags.file_id"
+		" JOIN ids ON tags.tag_id = ids.id"
+		" WHERE " + sql_expr +
+		" ORDER BY files.path",
+		[&](char** arg) { std::cout << arg[0] << std::endl; });
+}
+
