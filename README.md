@@ -16,9 +16,9 @@ a media player.
 How it works:
   * You can append tags to your files using the system tray icon
   * The commandline tool has 3 functionalities
-  ** Print all filenames for a set of given tags
-  ** Send implications about what tags imply what other tags
-  ** Send keywords for the GUIs "Recommended tags": Files containing
+    * Print all filenames for a set of given tags
+    * Send implications about what tags imply what other tags
+    * Send keywords for the GUIs "Recommended tags": Files containing
      these keywords are recommended by the GUI.
 
 In the future, you will be able to ...
