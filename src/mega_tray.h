@@ -58,8 +58,8 @@ class mega_tray : public QSystemTrayIcon, megatag
 	QTimer next_tag;
 	QWidgetAction* widget_actions[num_widgets];
 	QWidget widgets[num_widgets];
-	QVBoxLayout main_layout;
-	QLabel information;
+	QVBoxLayout main_layouts[num_widgets];
+	QLabel information[num_widgets];
 	QStringList word_list;
 	QCompleter completer;
 	QLineEdit tag_edit;

@@ -10,20 +10,23 @@ INCLUDEPATH += .
 # Input
 SOURCES += src/main.cpp \
 	src/db.cpp \
-    src/mega_tray.cpp \
-    src/megatag.cpp \
-    src/megatool.cpp \
-    src/megatool_main.cpp
+	src/mega_tray.cpp \
+	src/megatag.cpp \
+	src/megatool.cpp \
+	src/megatool_main.cpp
 
 HEADERS += \
 	src/db.h \
-    src/mega_tray.h \
-    src/megatag.h \
-    src/graph.h \
-    src/megatool.h
+	src/mega_tray.h \
+	src/megatag.h \
+	src/graph.h \
+	src/megatool.h
 
-OTHER_FILES += src/CMakeLists.txt
+OTHER_FILES += src/CMakeLists.txt \
+	README.md \
+	INSTALL.md \
+	FAQ.md
 
 DISTFILES += \
-    bash_completion
+	bash_completion
 

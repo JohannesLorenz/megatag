@@ -32,12 +32,12 @@ megatool::megatool()
 
 }
 
-void megatool::add_keyword(const char *keyword, const char *tag)
+void megatool::add_keyword(std::string keyword, const char *tag)
 {
-	if(!is_valid_keyword(keyword))
+	if(!is_valid_keyword(keyword.c_str()))
 	 throw std::runtime_error("Keywords must currently be in '[A-Za-z]*'.");
 	db.exec("INSERT OR IGNORE into keywords (keyword, id) VALUES('"
-		+ std::string(keyword) + "', '"
+		+ keyword + "', '"
 		+ get_known_tag_id(tag) + "');");
 }
 

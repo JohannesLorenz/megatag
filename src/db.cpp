@@ -24,6 +24,8 @@
 #include <iostream> // TODO
 #include "db.h"
 
+using namespace std::literals::string_literals;
+
 static int callback(void *voidptr, int argc, char **argv, char **col_names)
 {
 	functor_base* ftor_base = reinterpret_cast<functor_base*>(voidptr);
@@ -36,7 +38,7 @@ void db_t::exec(const char *cmd, functor_base& ftor)
 	char* err_msg;
 	int rc = sqlite3_exec(db, cmd, callback, &ftor, &err_msg);
 	if( rc != SQLITE_OK ) {
-		throw std::runtime_error(std::string("SQL error: ") + err_msg);
+		throw std::runtime_error("SQL error: "s + err_msg);
 		sqlite3_free(err_msg);
 		}
 }
@@ -72,7 +74,7 @@ db_t::db_t(const char *filename)
 	int rc = sqlite3_open(filename, &db);
 
 	if( rc ){
-		throw std::runtime_error(std::string("Can't open database: ") + sqlite3_errmsg(db));
+		throw std::runtime_error("Can't open database: "s + sqlite3_errmsg(db));
 	}
 
 

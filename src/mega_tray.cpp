@@ -40,10 +40,7 @@ void mega_tray::setup_ui()
 //	tray_menu.addSeparator();
 	setContextMenu(&tag_menu);
 
-	main_layout.addWidget(&information);
-
 	tag_edit.setCompleter(&completer);
-	main_layout.addWidget(&tag_edit);
 
 	for(std::size_t i = 0; i < num_buttons; ++i) // TODO: enumerator?
 	for(std::size_t j = 0; j < 8; ++j)
@@ -54,19 +51,27 @@ void mega_tray::setup_ui()
 		grids[i].addWidget(&btn, j/4, j%4);
 	}
 
-	widgets[information_widget].setLayout(&main_layout);
-	widgets[suggested_widget].setLayout(grids);
-	widgets[recent_widget].setLayout(grids + 1);
-	widgets[popular_widget].setLayout(grids + 2);
+	information[suggested_widget].setText("Recommended tags");
+	information[recent_widget].setText("Recent tags");
+	information[popular_widget].setText("Popular tags");
 
 	for(std::size_t i = 0; i < num_widgets; ++i)
 	{
+		main_layouts[i].addWidget(information + i);
+		widgets[i].setLayout(main_layouts + i);
 		QWidgetAction* new_action = new QWidgetAction(&tag_menu);
 		new_action->setDefaultWidget(widgets + i);
 		tag_menu.addAction(new_action);
 		tag_menu.addSeparator();
 		widget_actions[i] = new_action;
+		widget_actions[i]->setVisible(false);
 	}
+
+	main_layouts[information_widget].addWidget(&tag_edit);
+	main_layouts[suggested_widget].addLayout(grids + suggested_buttons);
+	main_layouts[recent_widget].addLayout(grids + recent_buttons);
+	main_layouts[popular_widget].addLayout(grids + popular_buttons);
+
 	tag_menu.addAction(&act_quit);
 	tag_menu.setWindowIcon(QIcon("../../icon.png"));
 
@@ -220,26 +225,40 @@ void mega_tray::tag()
 		next_tag.stop(); // no need to re-run timer
 		qDebug() << "PID: " << pid;
 
-		get_input(("readlink /proc/" + std::to_string(pid) +
-			"/fd/* | grep -v '\\(/dev/\\|pipe:\\|socket:\\)'").c_str());
-		std::cin >> path;
-		_basename = basename(path);
-		if(!_basename)
-		 throw std::runtime_error(std::string("Could not find basename of played file") + path);
-		++_basename;
+		std::string command;
+		std::ifstream comm_f("/proc/" + std::to_string(pid) + "/comm");
+		comm_f >> command;
+		if(!command.compare(0, 7, "mplayer"))
+		{
+			using namespace std::literals::string_literals;
 
-		qDebug() << "playing: " << _basename;
+			get_input(("readlink /proc/" + std::to_string(pid) +
+				"/fd/* | grep -v '\\(/dev/\\|pipe:\\|socket:\\)'").c_str());
+			std::cin >> path;
+			_basename = basename(path);
+			if(!_basename)
+			 throw std::runtime_error("Could not find basename of played file"s + path);
+			++_basename;
 
-		on_update_keywords_for_file();
+			qDebug() << "playing: " << _basename;
 
-		tag_menu.setWindowFlags(Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
-		QPoint pos = geometry().bottomLeft();
-		qDebug() << "POS: " << pos;
-		contextMenu()->move(pos);
-		contextMenu()->show();
-		/*QPoint pos = geometry().bottomLeft();
-		tag_menu.popup(pos);
-		tag_menu.show();*/
+			on_update_keywords_for_file();
+
+			for(std::size_t i = 0; i<num_widgets; ++i)
+			 widget_actions[i]->setVisible(true);
+
+			/*
+				try to pop up the window...
+			*/
+			tag_menu.setWindowFlags(Qt::WindowStaysOnTopHint|Qt::FramelessWindowHint);
+			QPoint pos = geometry().bottomLeft();
+			qDebug() << "POS: " << pos;
+			contextMenu()->move(pos);
+			contextMenu()->show();
+			/*QPoint pos = geometry().bottomLeft();
+			tag_menu.popup(pos);
+			tag_menu.show();*/
+		}
 	} else {
 		qDebug() << "retrying...";
 	}
@@ -268,7 +287,7 @@ void mega_tray::update_information_string()
 		info_str += "</b>";
 	}
 
-	information.setText(QString::fromStdString(info_str));
+	information[information_widget].setText(QString::fromStdString(info_str));
 }
 
 void mega_tray::on_update_keywords_for_file()
