@@ -71,6 +71,9 @@ protected:
 	static bool is_valid_keyword(const char* keyword);
 
 	std::set<std::size_t> are_reachable_from(std::size_t src);
+
+	void reread_graph();
+
 public:
 	megatag();
 };

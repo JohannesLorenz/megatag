@@ -17,11 +17,10 @@
 /* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110, USA  */
 /*************************************************************************/
 
+#include <boost/graph/transitive_closure.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/graphviz.hpp>
-#include <boost/graph/depth_first_search.hpp>
-#include <boost/graph/transitive_closure.hpp>
 
 #ifndef GRAPH_H
 #define GRAPH_H
@@ -301,13 +300,15 @@ public:
 		int i = 0;
 		for(const auto& pr : to_tc_vec)
 		{
-			std::cout << "mapping " << i << " to " << pr << std::endl;
+//			std::cout << "mapping " << i << " to " << pr << std::endl;
 			res.get(pr) = get(i);
 			++i;
 		}
 	}
 
 	bool has_edge(vertex_t src, vertex_t dest) { return boost::edge(src,dest,graph).second; }
+
+	void clear() { graph.clear(); }
 
 	graph_base_t() = default;
 	graph_base_t(const graph_t& g) : graph(g) {}

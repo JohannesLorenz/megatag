@@ -52,16 +52,34 @@ void run(int argc, char** argv)
 	if(!argc)
 	 throw argument_error("No arguments specified");
 
-	if(!strcmp(argv[1], "--help") || !strcmp(argv[1], "-help") || !strcmp(argv[1], "help"))
+	if(!strcmp(argv[1], "--help") || !strcmp(argv[1], "-help"))
 	{
-		std::cerr << "usage" << std::endl;
-		std::cerr << argv[0] << " <keywords> '->' <tags>" << std::endl;
-		std::cerr << argv[0] << " <tags> '<-' <keywords>" << std::endl;
-		std::cerr << argv[0] << " <tags> '->' <tags>" << std::endl;
-		std::cerr << argv[0] << " <tags> '<-' <tags>" << std::endl;
-		std::cerr << argv[0] << " <sql-where-expr without 'where'>" << std::endl;
-		std::cerr << argv[0] << "   (in the sql-expr, refer to the tag name as 'name')" << std::endl;
-		std::cerr << "Note that < and > must be shell-escaped." << std::endl;
+		std::cerr << "Usage:" << std::endl;
+		std::cerr << argv[0] << " (1) <keywords> '->' <tags>" << std::endl;
+		std::cerr << argv[0] << " (2) <tags> '<-' <keywords>" << std::endl;
+		std::cerr << argv[0] << " (3) <tags> '=>' <tags>" << std::endl;
+		std::cerr << argv[0] << " (4) <tags> '<=' <tags>" << std::endl;
+		std::cerr << argv[0] << " (5) <sql-where-expr without 'where'>" << std::endl;
+		std::cerr << "Notes:" << std::endl;
+		std::cerr << " * in the sql-expr, refer to the tag name as 'name'" << std::endl;
+		std::cerr << " * < and > must be quoted or shell-escaped" << std::endl;
+		std::cerr << "Exmaples:" << std::endl;
+		std::cerr << " (1) holiday vacation '->' vacation" << std::endl;
+		std::cerr << "     This will let the GUI show up all files that have" << std::endl;
+		std::cerr << "     holiday or vacation in their name under \"Recommended tags\"" << std::endl;
+		std::cerr << " (2) vacation '<-' holiday vacation" << std::endl;
+		std::cerr << "     Has the same meaning as (1)" << std::endl;
+		std::cerr << " (3) vacation-2014 vacation-2015 \"=>\" vacation holiday" << std::endl;
+		std::cerr << "     Forces all categories of the left to be automatically" << std::endl;
+		std::cerr << "     in the categories on the left." << std::endl;
+		std::cerr << "     Further queries to all files tagged as vacation will" << std::endl;
+		std::cerr << "     also list all files tagged as vacation-2014." << std::endl;
+		std::cerr << " (4) Like (3)." << std::endl;
+		std::cerr << " (5) \"name in ('vacation') and name in ('flowers')\"" << std::endl;
+		std::cerr << "     Will list all tags that are in both vacation and flowers" << std::endl;
+		std::cerr << "     \"name in ('vacation','work')\"" << std::endl;
+		std::cerr << "     Will list all tags that are tagged as vacation or work" << std::endl;
+		return;
 	}
 
 	megatool m;

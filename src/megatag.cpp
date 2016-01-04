@@ -72,7 +72,7 @@ pid_t megatag::get_xprop_pid()
 	char last_xprop_output[xprop_out_size];
 	while( std::cin.getline(last_xprop_output, xprop_out_size) )
 	{
-		std::cout << "LAST: " << last_xprop_output << std::endl;
+		std::cerr << "xprop output: " << last_xprop_output << std::endl;
 
 		const char* ptr = last_xprop_output;
 		for(; *ptr != '=' && *ptr != 0; ++ptr) ;
@@ -164,10 +164,11 @@ void megatag::get_file_id()
 }
 
 
-megatag::megatag() :
-	megatag_dir(get_megatag_dir()),
-	db((megatag_dir + "db").c_str())
+void megatag::reread_graph()
 {
+	graph.clear();
+	vertex_of.clear();
+
 	db.func0("SELECT id FROM ids",
 		[&](char** arg) {
 			int v_id = atoi(arg[0]);
@@ -183,6 +184,12 @@ megatag::megatag() :
 	o << tra_cl;
 }
 
+megatag::megatag() :
+	megatag_dir(get_megatag_dir()),
+	db((megatag_dir + "db").c_str())
+{
+	reread_graph();
+}
 
 
 time_t megatag::get_ftime()

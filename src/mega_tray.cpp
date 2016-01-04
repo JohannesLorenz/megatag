@@ -202,6 +202,7 @@ void mega_tray::submit_tag(const QString& new_text)
 			db.exec("INSERT INTO tags (file_id, tag_id) "
 				 "VALUES(" + std::to_string(file_id) + ", " + std::to_string(tags_id) + ");");
 
+			reread_graph();
 			std::set<std::size_t> s = are_reachable_from(tags_id);
 			for(const std::size_t implicated : s)
 			{
@@ -238,7 +239,6 @@ void mega_tray::tag()
 			_basename = basename(path);
 			if(!_basename)
 			 throw std::runtime_error("Could not find basename of played file"s + path);
-			++_basename;
 
 			qDebug() << "playing: " << _basename;
 
