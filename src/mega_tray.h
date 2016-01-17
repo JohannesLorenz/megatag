@@ -67,7 +67,7 @@ class mega_tray : public QSystemTrayIcon, megatag
 	QGridLayout grids[num_buttons];
 	QPushButton buttons[num_buttons][8];
 
-	QAction act_quit;
+	QAction act_hide, act_quit;
 
 //	QAction act_about;
 

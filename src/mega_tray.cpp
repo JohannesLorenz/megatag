@@ -72,16 +72,18 @@ void mega_tray::setup_ui()
 	main_layouts[recent_widget].addLayout(grids + recent_buttons);
 	main_layouts[popular_widget].addLayout(grids + popular_buttons);
 
+	tag_menu.addAction(&act_hide);
 	tag_menu.addAction(&act_quit);
 	tag_menu.setWindowIcon(QIcon("../../icon.png"));
 
 	QObject::connect(this, SIGNAL(activated(QSystemTrayIcon::ActivationReason)),
 		this, SLOT(triggerTray(QSystemTrayIcon::ActivationReason)));
 //	QObject::connect(&act_about, SIGNAL(triggered()), this, SLOT(showInfo()));
+	QObject::connect(&act_hide, SIGNAL(triggered()), &tag_menu, SLOT(hide()));
 	QObject::connect(&act_quit, SIGNAL(triggered()), this, SLOT(close_app()));
 //	QObject::connect(&act_settings, SIGNAL(triggered()), this, SLOT(options()));
 	QObject::connect(&next_tag, SIGNAL(timeout()), this, SLOT(tag()));
-	QObject::connect(&tag_edit, SIGNAL(editingFinished()), this, SLOT(submit_tag_by_text_edit()));
+	QObject::connect(&tag_edit, SIGNAL(returnPressed()), this, SLOT(submit_tag_by_text_edit()));
 }
 
 QStringList mega_tray::get_word_list()
@@ -296,9 +298,11 @@ void mega_tray::on_update_keywords_for_file()
 	update_information_string();
 
 #define SELECT_UNUSED_ \
-		"SELECT ids.name,ids.id,tags.tag_id" \
-		" FROM ids LEFT OUTER JOIN tags ON (tags.tag_id = ids.id)" \
-		" WHERE tags.tag_id is null OR tags.tag_id=''"
+		"SELECT ids.name,ids.id,ss.tag_id" \
+		" FROM ids LEFT OUTER JOIN (SELECT * FROM tags WHERE file_id=" \
+			+ std::to_string(file_id) \
+			+ ") ss ON (ss.tag_id = ids.id)" \
+		" WHERE ss.tag_id is null OR ss.tag_id=''"
 
 	std::size_t next_button = 0;
 	db.func0(SELECT_UNUSED_
@@ -321,11 +325,11 @@ void mega_tray::on_update_keywords_for_file()
 	 buttons[popular_buttons][next_button].setText("");
 
 	next_button=0;
-	db.func0("SELECT ids.name,ids.id,tags.tag_id"
+	db.func0("SELECT ids.name,ids.id,ss.tag_id"
 		" FROM ids"
-		" LEFT OUTER JOIN tags ON (tags.tag_id = ids.id) "
+		" LEFT OUTER JOIN (SELECT * FROM tags WHERE file_id=1) ss ON (ss.tag_id = ids.id) "
 		" JOIN keywords ON (ids.id = keywords.id) "
-		" WHERE tags.tag_id is null OR tags.tag_id=''"
+		" WHERE ss.tag_id is null OR ss.tag_id=''"
 		// keyword is part of path:
 		" AND '" + std::string(path) + "' like ('%' || keywords.keyword || '%') "
 		" ORDER BY ids.name"
@@ -367,6 +371,7 @@ mega_tray::mega_tray() :
 	QSystemTrayIcon(QIcon("../../icon.png")),
 	word_list(get_word_list()),
 	completer(word_list, &widgets[information_widget] /* TODO: really widget? */),
+	act_hide("Hide", this),
 	act_quit("Quit", this)
 {
 	setup_ui();

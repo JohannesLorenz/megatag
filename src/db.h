@@ -74,6 +74,7 @@ struct functor_print : public functor_base
 class db_t
 {
 	sqlite3 *db;
+	bool debug = false;
 public:
 	bool table_exists(const char* table_name);
 	void exec(const char* cmd, functor_base& ftor);
@@ -129,6 +130,8 @@ public:
 		functor_silent silence;
 		exec(cmd, silence);
 	}
+
+	void load(const char *filename);
 
 	db_t(const char* filename);
 	~db_t();

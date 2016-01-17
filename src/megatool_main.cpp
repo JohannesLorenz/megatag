@@ -49,10 +49,7 @@ enum class impl_type_t
 
 void run(int argc, char** argv)
 {
-	if(!argc)
-	 throw argument_error("No arguments specified");
-
-	if(!strcmp(argv[1], "--help") || !strcmp(argv[1], "-help"))
+	if(1 == argc || !strcmp(argv[1], "--help") || !strcmp(argv[1], "-help"))
 	{
 		std::cerr << "Usage:" << std::endl;
 		std::cerr << argv[0] << " (1) <keywords> '->' <tags>" << std::endl;
@@ -63,7 +60,7 @@ void run(int argc, char** argv)
 		std::cerr << "Notes:" << std::endl;
 		std::cerr << " * in the sql-expr, refer to the tag name as 'name'" << std::endl;
 		std::cerr << " * < and > must be quoted or shell-escaped" << std::endl;
-		std::cerr << "Exmaples:" << std::endl;
+		std::cerr << "Examples:" << std::endl;
 		std::cerr << " (1) holiday vacation '->' vacation" << std::endl;
 		std::cerr << "     This will let the GUI show up all files that have" << std::endl;
 		std::cerr << "     holiday or vacation in their name under \"Recommended tags\"" << std::endl;

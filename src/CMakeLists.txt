@@ -1,3 +1,5 @@
+add_subdirectory(sql)
+
 set(src_dir "${CMAKE_CURRENT_SOURCE_DIR}")
 
 find_package(Qt4)

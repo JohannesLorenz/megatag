@@ -27,15 +27,16 @@ std::string megatool::get_known_tag_id(const char *id_name)
 	return std::to_string(tag_id);
 }
 
-megatool::megatool()
-{
+megatool::megatool() {}
 
+megatool::~megatool() {
+	db.exec("DROP TABLE IF EXISTS implicits_closure");
 }
 
 void megatool::add_keyword(std::string keyword, const char *tag)
 {
 	if(!is_valid_keyword(keyword.c_str()))
-	 throw std::runtime_error("Keywords must currently be in '[A-Za-z]*'.");
+	 throw std::runtime_error("Keywords must currently be in '[A-Za-z0-9]*'.");
 	db.exec("INSERT OR IGNORE into keywords (keyword, id) VALUES('"
 		+ keyword + "', '"
 		+ get_known_tag_id(tag) + "');");
@@ -50,12 +51,21 @@ void megatool::add_impl(const char *src_tag, const char *dest_tag)
 
 void megatool::query(std::string sql_expr)
 {
+	db.load("sql/closure");
+	db.exec("CREATE VIRTUAL TABLE implicits_closure USING transitive_closure("
+		 " tablename=\"implicits\","
+		 " idcolumn=\"dest\","
+		 " parentcolumn=\"src\");");
+
 	db.func0("SELECT DISTINCT files.path from"
 		" files"
 		" JOIN tags ON files.id = tags.file_id"
-		" JOIN ids ON tags.tag_id = ids.id"
+		" JOIN implicits_closure ON tags.tag_id = implicits_closure.id"
+		" JOIN ids ON implicits_closure.root = ids.id"
 		" WHERE " + sql_expr +
-		" ORDER BY files.path",
+		" ORDER BY files.path;",
 		[&](char** arg) { std::cout << arg[0] << std::endl; });
+
+	db.exec("DROP TABLE IF EXISTS implicits_closure");
 }
 

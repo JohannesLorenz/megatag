@@ -27,6 +27,7 @@ class megatool : public megatag
 	std::string get_known_tag_id(const char* id_name);
 public:
 	megatool();
+	~megatool();
 	void add_keyword(std::string keyword, const char* tag);
 	void add_impl(const char* src_tag, const char* dest_tag);
 	void query(std::string sql_expr);

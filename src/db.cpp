@@ -34,7 +34,8 @@ static int callback(void *voidptr, int argc, char **argv, char **col_names)
 
 void db_t::exec(const char *cmd, functor_base& ftor)
 {
-	std::cerr << "Executing: " << cmd <<std::endl;
+	if(debug)
+	 std::cerr << "Executing: " << cmd <<std::endl;
 	char* err_msg;
 	int rc = sqlite3_exec(db, cmd, callback, &ftor, &err_msg);
 	if( rc != SQLITE_OK ) {
@@ -67,6 +68,15 @@ bool db_t::table_exists(const char* table_name)
 	functor_table_found ftor(table_name);
 	exec("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;", ftor);
 	return ftor.found();
+}
+
+void db_t::load(const char* filename)
+{
+	sqlite3_enable_load_extension(db, 1);
+	char* err_msg;
+	if(sqlite3_load_extension(db, filename, NULL, &err_msg) == SQLITE_ERROR)
+	 throw std::runtime_error(err_msg);
+	sqlite3_enable_load_extension(db, 0);
 }
 
 db_t::db_t(const char *filename)

@@ -123,7 +123,7 @@ int megatag::get_tag_id(const std::string& id_name)
 
 bool megatag::is_valid_keyword(const char *keyword)
 {
-	while(isalpha(*keyword)) ++keyword;
+	while(isalnum(*keyword)) ++keyword;
 	return !*keyword;
 }
 
